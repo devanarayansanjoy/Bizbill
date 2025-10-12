@@ -1,16 +1,62 @@
+import { useQuery } from "@tanstack/react-query";
 import CreditManagement from "@/components/CreditManagement";
 
-export default function CreditPage() {
-  const mockCreditSales = [
-    { id: "1", invoiceNumber: "INV-2024-001", partyName: "ABC Industries", date: "2024-01-15", total: 25000, paid: 15000, balance: 10000, status: "partial" as const },
-    { id: "2", invoiceNumber: "INV-2024-002", partyName: "XYZ Corp", date: "2023-12-28", total: 18000, paid: 0, balance: 18000, status: "overdue" as const },
-    { id: "3", invoiceNumber: "INV-2024-003", partyName: "Global Traders", date: "2024-01-10", total: 12500, paid: 0, balance: 12500, status: "pending" as const },
-  ];
+interface Sale {
+  id: string;
+  invoiceNumber: string;
+  customerName: string;
+  date: Date;
+  totalAmount: string;
+  paidAmount: string;
+  status: string;
+  isCredit: boolean;
+}
 
-  const mockCreditPurchases = [
-    { id: "4", invoiceNumber: "BILL-2024-001", partyName: "Material Suppliers Ltd", date: "2024-01-10", total: 30000, paid: 20000, balance: 10000, status: "partial" as const },
-    { id: "5", invoiceNumber: "BILL-2024-002", partyName: "Raw Materials Co", date: "2024-01-12", total: 15000, paid: 0, balance: 15000, status: "pending" as const },
-  ];
+interface Purchase {
+  id: string;
+  billNumber: string;
+  vendorName: string;
+  date: Date;
+  totalAmount: string;
+  paidAmount: string;
+  status: string;
+  isCredit: boolean;
+}
+
+export default function CreditPage() {
+  const { data: allSales = [] } = useQuery<Sale[]>({
+    queryKey: ["/api/sales"],
+  });
+
+  const { data: allPurchases = [] } = useQuery<Purchase[]>({
+    queryKey: ["/api/purchases"],
+  });
+
+  const creditSales = allSales
+    .filter(s => s.isCredit)
+    .map(s => ({
+      id: s.id,
+      invoiceNumber: s.invoiceNumber,
+      partyName: s.customerName,
+      date: new Date(s.date).toLocaleDateString(),
+      total: parseFloat(s.totalAmount),
+      paid: parseFloat(s.paidAmount),
+      balance: parseFloat(s.totalAmount) - parseFloat(s.paidAmount),
+      status: s.status as "pending" | "partial" | "overdue",
+    }));
+
+  const creditPurchases = allPurchases
+    .filter(p => p.isCredit)
+    .map(p => ({
+      id: p.id,
+      invoiceNumber: p.billNumber,
+      partyName: p.vendorName,
+      date: new Date(p.date).toLocaleDateString(),
+      total: parseFloat(p.totalAmount),
+      paid: parseFloat(p.paidAmount),
+      balance: parseFloat(p.totalAmount) - parseFloat(p.paidAmount),
+      status: p.status as "pending" | "partial" | "overdue",
+    }));
 
   return (
     <div className="space-y-6">
@@ -18,7 +64,7 @@ export default function CreditPage() {
         <h1 className="text-3xl font-semibold">Credit Management</h1>
         <p className="text-muted-foreground">Track credit sales and purchases</p>
       </div>
-      <CreditManagement creditSales={mockCreditSales} creditPurchases={mockCreditPurchases} />
+      <CreditManagement creditSales={creditSales} creditPurchases={creditPurchases} />
     </div>
   );
 }

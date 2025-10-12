@@ -55,7 +55,11 @@ export const sales = pgTable("sales", {
   isCredit: boolean("is_credit").notNull().default(false),
 });
 
-export const insertSaleSchema = createInsertSchema(sales).omit({ id: true });
+export const insertSaleSchema = createInsertSchema(sales).omit({ 
+  id: true, 
+  invoiceNumber: true, 
+  date: true 
+});
 export type InsertSale = z.infer<typeof insertSaleSchema>;
 export type Sale = typeof sales.$inferSelect;
 
@@ -72,7 +76,11 @@ export const purchases = pgTable("purchases", {
   isCredit: boolean("is_credit").notNull().default(false),
 });
 
-export const insertPurchaseSchema = createInsertSchema(purchases).omit({ id: true });
+export const insertPurchaseSchema = createInsertSchema(purchases).omit({ 
+  id: true, 
+  billNumber: true, 
+  date: true 
+});
 export type InsertPurchase = z.infer<typeof insertPurchaseSchema>;
 export type Purchase = typeof purchases.$inferSelect;
 
@@ -88,7 +96,10 @@ export const production = pgTable("production", {
   byproductName: text("byproduct_name"),
 });
 
-export const insertProductionSchema = createInsertSchema(production).omit({ id: true });
+export const insertProductionSchema = createInsertSchema(production).omit({ 
+  id: true, 
+  date: true 
+});
 export type InsertProduction = z.infer<typeof insertProductionSchema>;
 export type Production = typeof production.$inferSelect;
 
@@ -104,6 +115,10 @@ export const byproductSales = pgTable("byproduct_sales", {
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
 });
 
-export const insertByproductSaleSchema = createInsertSchema(byproductSales).omit({ id: true });
+export const insertByproductSaleSchema = createInsertSchema(byproductSales).omit({ 
+  id: true, 
+  invoiceNumber: true, 
+  date: true 
+});
 export type InsertByproductSale = z.infer<typeof insertByproductSaleSchema>;
 export type ByproductSale = typeof byproductSales.$inferSelect;

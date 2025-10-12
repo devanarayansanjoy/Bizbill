@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface LineItem {
   id: string;
@@ -15,12 +18,37 @@ interface LineItem {
 }
 
 export default function PurchaseForm() {
+  const { toast } = useToast();
   const [items, setItems] = useState<LineItem[]>([
     { id: "1", material: "", quantity: "", rate: "", amount: "0" }
   ]);
   const [isCredit, setIsCredit] = useState(false);
   const [vendorName, setVendorName] = useState("");
   const [paidAmount, setPaidAmount] = useState("");
+
+  const createPurchaseMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/purchases", data).then(res => res.json()),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Success",
+        description: `Bill ${data.billNumber} recorded successfully!`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      
+      setVendorName("");
+      setItems([{ id: "1", material: "", quantity: "", rate: "", amount: "0" }]);
+      setIsCredit(false);
+      setPaidAmount("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create purchase",
+        variant: "destructive",
+      });
+    },
+  });
 
   const addItem = () => {
     setItems([...items, { 
@@ -58,7 +86,16 @@ export default function PurchaseForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Purchase submitted:", { vendorName, items, total, isCredit, paidAmount, balance });
+    
+    const status = isCredit ? (balance === 0 ? "paid" : balance < total ? "partial" : "pending") : "paid";
+    
+    createPurchaseMutation.mutate({
+      vendorName,
+      totalAmount: total.toFixed(2),
+      paidAmount: isCredit ? (paidAmount || "0") : total.toFixed(2),
+      isCredit,
+      status,
+    });
   };
 
   return (
@@ -201,8 +238,13 @@ export default function PurchaseForm() {
             )}
           </div>
 
-          <Button type="submit" className="w-full" data-testid="button-submit-purchase">
-            Record Purchase
+          <Button 
+            type="submit" 
+            className="w-full" 
+            data-testid="button-submit-purchase"
+            disabled={createPurchaseMutation.isPending}
+          >
+            {createPurchaseMutation.isPending ? "Recording..." : "Record Purchase"}
           </Button>
         </CardContent>
       </Card>

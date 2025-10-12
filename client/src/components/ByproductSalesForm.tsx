@@ -1,21 +1,55 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function ByproductSalesForm() {
+  const { toast } = useToast();
   const [productName, setProductName] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
+
+  const createByproductSaleMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/byproduct-sales", data).then(res => res.json()),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Success",
+        description: `Byproduct invoice ${data.invoiceNumber} created successfully!`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/byproduct-sales"] });
+      
+      setProductName("");
+      setCustomerName("");
+      setQuantity("");
+      setUnitPrice("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create byproduct sale",
+        variant: "destructive",
+      });
+    },
+  });
 
   const totalAmount = quantity && unitPrice ? 
     (parseFloat(quantity) * parseFloat(unitPrice)).toFixed(2) : "0.00";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Byproduct sale:", { productName, customerName, quantity, unitPrice, totalAmount });
+    
+    createByproductSaleMutation.mutate({
+      productName,
+      customerName,
+      quantity,
+      unitPrice,
+      totalAmount,
+    });
   };
 
   return (
@@ -100,8 +134,13 @@ export default function ByproductSalesForm() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full" data-testid="button-submit-byproduct">
-            Generate Byproduct Invoice
+          <Button 
+            type="submit" 
+            className="w-full" 
+            data-testid="button-submit-byproduct"
+            disabled={createByproductSaleMutation.isPending}
+          >
+            {createByproductSaleMutation.isPending ? "Generating..." : "Generate Byproduct Invoice"}
           </Button>
         </CardContent>
       </Card>

@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import DashboardStats from "@/components/DashboardStats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,12 +11,55 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+interface DashboardStatsData {
+  totalSales: string;
+  pendingPayments: string;
+  lowStock: number;
+  todayProduction: number;
+}
+
+interface Transaction {
+  id: string;
+  invoiceNumber?: string;
+  billNumber?: string;
+  customerName?: string;
+  vendorName?: string;
+  totalAmount: string;
+  status: string;
+  date: Date;
+}
+
 export default function Dashboard() {
+  const { data: stats } = useQuery<DashboardStatsData>({
+    queryKey: ["/api/dashboard/stats"],
+  });
+
+  const { data: sales = [] } = useQuery<Transaction[]>({
+    queryKey: ["/api/sales"],
+  });
+
+  const { data: purchases = [] } = useQuery<Transaction[]>({
+    queryKey: ["/api/purchases"],
+  });
+
   const recentTransactions = [
-    { id: "1", type: "Sale", number: "INV-2024-156", party: "ABC Industries", amount: 12500, status: "paid" },
-    { id: "2", type: "Purchase", number: "BILL-2024-089", party: "Material Suppliers", amount: 8900, status: "pending" },
-    { id: "3", type: "Sale", number: "INV-2024-155", party: "XYZ Corp", amount: 18200, status: "partial" },
-  ];
+    ...sales.slice(0, 2).map(s => ({
+      id: s.id,
+      type: "Sale",
+      number: s.invoiceNumber || "",
+      party: s.customerName || "",
+      amount: parseFloat(s.totalAmount),
+      status: s.status
+    })),
+    ...purchases.slice(0, 1).map(p => ({
+      id: p.id,
+      type: "Purchase",
+      number: p.billNumber || "",
+      party: p.vendorName || "",
+      amount: parseFloat(p.totalAmount),
+      status: p.status
+    }))
+  ].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 5);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -38,10 +82,10 @@ export default function Dashboard() {
       </div>
 
       <DashboardStats
-        totalSales="1,45,230"
-        pendingPayments="32,450"
-        lowStock={3}
-        todayProduction={250}
+        totalSales={stats?.totalSales || "0"}
+        pendingPayments={stats?.pendingPayments || "0"}
+        lowStock={stats?.lowStock || 0}
+        todayProduction={stats?.todayProduction || 0}
       />
 
       <Card>
@@ -49,30 +93,34 @@ export default function Dashboard() {
           <CardTitle>Recent Transactions</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Number</TableHead>
-                <TableHead>Party</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentTransactions.map((txn) => (
-                <TableRow key={txn.id} data-testid={`row-transaction-${txn.id}`}>
-                  <TableCell>
-                    <Badge variant="outline">{txn.type}</Badge>
-                  </TableCell>
-                  <TableCell className="font-mono">{txn.number}</TableCell>
-                  <TableCell className="font-medium">{txn.party}</TableCell>
-                  <TableCell className="font-mono">₹{txn.amount.toLocaleString()}</TableCell>
-                  <TableCell>{getStatusBadge(txn.status)}</TableCell>
+          {recentTransactions.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No transactions yet. Start by creating a sale or purchase.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Number</TableHead>
+                  <TableHead>Party</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {recentTransactions.map((txn) => (
+                  <TableRow key={txn.id} data-testid={`row-transaction-${txn.id}`}>
+                    <TableCell>
+                      <Badge variant="outline">{txn.type}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono">{txn.number}</TableCell>
+                    <TableCell className="font-medium">{txn.party}</TableCell>
+                    <TableCell className="font-mono">₹{txn.amount.toLocaleString()}</TableCell>
+                    <TableCell>{getStatusBadge(txn.status)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,11 +1,14 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function ProductionForm() {
+  const { toast } = useToast();
   const [productName, setProductName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
@@ -13,19 +16,45 @@ export default function ProductionForm() {
   const [byproductName, setByproductName] = useState("");
   const [byproductQty, setByproductQty] = useState("");
 
+  const createProductionMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/production", data).then(res => res.json()),
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Production record created successfully!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/production"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      
+      setProductName("");
+      setQuantity("");
+      setUnit("");
+      setRawMaterialCost("");
+      setByproductName("");
+      setByproductQty("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create production record",
+        variant: "destructive",
+      });
+    },
+  });
+
   const productionRate = rawMaterialCost && quantity ? 
     (parseFloat(rawMaterialCost) / parseFloat(quantity)).toFixed(2) : "0.00";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Production recorded:", { 
-      productName, 
-      quantity, 
-      unit, 
-      rawMaterialCost, 
-      productionRate,
-      byproductName, 
-      byproductQty 
+    
+    createProductionMutation.mutate({
+      productName,
+      quantity,
+      unit,
+      rawMaterialCost,
+      byproductName: byproductName || null,
+      byproductQuantity: byproductQty || null,
     });
   };
 
@@ -150,8 +179,13 @@ export default function ProductionForm() {
         </CardContent>
       </Card>
 
-      <Button type="submit" className="w-full" data-testid="button-submit-production">
-        Record Production
+      <Button 
+        type="submit" 
+        className="w-full" 
+        data-testid="button-submit-production"
+        disabled={createProductionMutation.isPending}
+      >
+        {createProductionMutation.isPending ? "Recording..." : "Record Production"}
       </Button>
     </form>
   );

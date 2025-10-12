@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface LineItem {
   id: string;
@@ -15,12 +18,37 @@ interface LineItem {
 }
 
 export default function SalesForm() {
+  const { toast } = useToast();
   const [items, setItems] = useState<LineItem[]>([
     { id: "1", description: "", quantity: "", rate: "", amount: "0" }
   ]);
   const [isCredit, setIsCredit] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [paidAmount, setPaidAmount] = useState("");
+
+  const createSaleMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/sales", data).then(res => res.json()),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Success",
+        description: `Invoice ${data.invoiceNumber} created successfully!`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      
+      setCustomerName("");
+      setItems([{ id: "1", description: "", quantity: "", rate: "", amount: "0" }]);
+      setIsCredit(false);
+      setPaidAmount("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create sale",
+        variant: "destructive",
+      });
+    },
+  });
 
   const addItem = () => {
     setItems([...items, { 
@@ -58,7 +86,16 @@ export default function SalesForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Sale submitted:", { customerName, items, total, isCredit, paidAmount, balance });
+    
+    const status = isCredit ? (balance === 0 ? "paid" : balance < total ? "partial" : "pending") : "paid";
+    
+    createSaleMutation.mutate({
+      customerName,
+      totalAmount: total.toFixed(2),
+      paidAmount: isCredit ? (paidAmount || "0") : total.toFixed(2),
+      isCredit,
+      status,
+    });
   };
 
   return (
@@ -201,8 +238,13 @@ export default function SalesForm() {
             )}
           </div>
 
-          <Button type="submit" className="w-full" data-testid="button-submit-sale">
-            Generate Invoice
+          <Button 
+            type="submit" 
+            className="w-full" 
+            data-testid="button-submit-sale"
+            disabled={createSaleMutation.isPending}
+          >
+            {createSaleMutation.isPending ? "Generating..." : "Generate Invoice"}
           </Button>
         </CardContent>
       </Card>
