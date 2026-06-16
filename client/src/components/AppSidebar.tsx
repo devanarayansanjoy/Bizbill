@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -30,12 +31,17 @@ import {
   Receipt,
   ChevronRight,
   LineChart,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  BookOpen,
+  Wallet,
+  ClipboardList
 } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Catalogue", url: "/catalogue", icon: BookOpen },
+  { title: "Inventory", url: "/inventory", icon: ClipboardList },
   { 
     title: "Reports & Analytics", 
     icon: LineChart,
@@ -61,9 +67,48 @@ const menuItems = [
     ]
   },
   { title: "Production", url: "/production", icon: Factory },
+  { title: "Expenses", url: "/expenses", icon: Wallet },
   { title: "Raw Materials", url: "/materials", icon: Boxes },
   { title: "Byproduct Sales", url: "/byproduct", icon: Recycle },
 ];
+
+function NavGroup({ item, location }: { item: any; location: string }) {
+  const isActive = item.subItems.some((subItem: any) => location === subItem.url);
+  const [isOpen, setIsOpen] = useState(isActive);
+
+  // Synchronize the open state with the active route whenever the user navigates
+  useEffect(() => {
+    setIsOpen(isActive);
+  }, [location, isActive]);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="group/collapsible">
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton>
+            <item.icon className="h-4 w-4" />
+            <span>{item.title}</span>
+            <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.subItems.map((subItem: any) => (
+              <SidebarMenuSubItem key={subItem.title}>
+                <SidebarMenuSubButton asChild isActive={location === subItem.url}>
+                  <Link href={subItem.url} data-testid={`link-${subItem.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                    <subItem.icon className="h-4 w-4 mr-2" />
+                    <span>{subItem.title}</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
 
 export default function AppSidebar() {
   const [location] = useLocation();
@@ -80,42 +125,16 @@ export default function AppSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => {
                 if (item.subItems) {
-                  return (
-                    <Collapsible defaultOpen className="group/collapsible" key={item.title}>
-                      <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton>
-                            <item.icon className="h-4 w-4" />
-                            <span>{item.title}</span>
-                            <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            {item.subItems.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton asChild isActive={location === subItem.url}>
-                                  <a href={subItem.url} data-testid={`link-${subItem.title.toLowerCase().replace(/\s+/g, '-')}`}>
-                                    <subItem.icon className="h-4 w-4 mr-2" />
-                                    <span>{subItem.title}</span>
-                                  </a>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
-                  );
+                  return <NavGroup key={item.title} item={item} location={location} />;
                 }
 
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={location === item.url}>
-                      <a href={item.url!} data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                      <Link href={item.url!} data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -128,10 +147,10 @@ export default function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={location === "/settings"}>
-              <a href="/settings" data-testid="link-settings">
+              <Link href="/settings" data-testid="link-settings">
                 <SettingsIcon className="h-4 w-4" />
                 <span>Settings</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

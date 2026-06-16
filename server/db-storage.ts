@@ -2,11 +2,14 @@ import {
   type Customer, type InsertCustomer,
   type Vendor, type InsertVendor,
   type RawMaterial, type InsertRawMaterial,
+  type Product, type InsertProduct,
+  type Byproduct, type InsertByproduct,
+  type Expense, type InsertExpense,
   type Sale, type InsertSale,
   type Purchase, type InsertPurchase,
   type Production, type InsertProduction,
   type ByproductSale, type InsertByproductSale,
-  customers, vendors, rawMaterials, sales, purchases, production, byproductSales
+  customers, vendors, rawMaterials, products, byproducts, expenses, sales, purchases, production, byproductSales
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -89,6 +92,93 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  // Products
+  async getProducts(): Promise<Product[]> {
+    return await db.select().from(products);
+  }
+
+  async getProduct(id: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  }
+
+  async createProduct(insertProduct: InsertProduct): Promise<Product> {
+    const [product] = await db.insert(products).values({
+      ...insertProduct,
+      currentStock: insertProduct.currentStock ?? "0",
+      imageUrl: insertProduct.imageUrl ?? null
+    }).returning();
+    return product;
+  }
+
+  async updateProductStock(id: string, quantity: number): Promise<Product | undefined> {
+    const product = await this.getProduct(id);
+    if (!product) return undefined;
+    
+    const currentStock = parseFloat(product.currentStock);
+    const newStock = (currentStock + quantity).toString();
+    
+    const [updated] = await db
+      .update(products)
+      .set({ currentStock: newStock })
+      .where(eq(products.id, id))
+      .returning();
+      
+    return updated;
+  }
+
+  // Byproducts
+  async getByproducts(): Promise<Byproduct[]> {
+    return await db.select().from(byproducts);
+  }
+
+  async getByproduct(id: string): Promise<Byproduct | undefined> {
+    const [byproduct] = await db.select().from(byproducts).where(eq(byproducts.id, id));
+    return byproduct;
+  }
+
+  async createByproduct(insertByproduct: InsertByproduct): Promise<Byproduct> {
+    const [byproduct] = await db.insert(byproducts).values({
+      ...insertByproduct,
+      currentStock: insertByproduct.currentStock ?? "0"
+    }).returning();
+    return byproduct;
+  }
+
+  async updateByproductStock(id: string, quantity: number): Promise<Byproduct | undefined> {
+    const byproduct = await this.getByproduct(id);
+    if (!byproduct) return undefined;
+    
+    const currentStock = parseFloat(byproduct.currentStock);
+    const newStock = (currentStock + quantity).toString();
+    
+    const [updated] = await db
+      .update(byproducts)
+      .set({ currentStock: newStock })
+      .where(eq(byproducts.id, id))
+      .returning();
+      
+    return updated;
+  }
+
+  // Expenses
+  async getExpenses(): Promise<Expense[]> {
+    return await db.select().from(expenses);
+  }
+
+  async getExpense(id: string): Promise<Expense | undefined> {
+    const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
+    return expense;
+  }
+
+  async createExpense(insertExpense: InsertExpense): Promise<Expense> {
+    const [expense] = await db.insert(expenses).values({
+      ...insertExpense,
+      date: new Date()
+    }).returning();
+    return expense;
+  }
+
   // Sales
   async getSales(): Promise<Sale[]> {
     return await db.select().from(sales);
@@ -100,8 +190,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSale(insertSale: InsertSale): Promise<Sale> {
-    // Note: A robust system would generate invoice numbers atomically in DB.
-    // For simplicity, we just count existing sales.
     const allSales = await this.getSales();
     const invoiceCounter = allSales.length + 1;
     const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCounter).padStart(4, '0')}`;
@@ -112,11 +200,19 @@ export class DatabaseStorage implements IStorage {
       date: new Date(),
       customerId: insertSale.customerId ?? null,
       customerPhone: insertSale.customerPhone ?? null,
+      productId: insertSale.productId ?? null,
+      quantity: insertSale.quantity ?? null,
+      unitPrice: insertSale.unitPrice ?? null,
       paidAmount: insertSale.paidAmount ?? "0",
       status: insertSale.status ?? "pending",
       isCredit: insertSale.isCredit ?? false,
       alertFrequency: insertSale.alertFrequency ?? "none"
     }).returning();
+
+    // Auto-update inventory if linked to a product
+    if (sale.productId && sale.quantity) {
+      await this.updateProductStock(sale.productId, -parseFloat(sale.quantity));
+    }
     
     return sale;
   }
@@ -155,11 +251,19 @@ export class DatabaseStorage implements IStorage {
       date: new Date(),
       vendorId: insertPurchase.vendorId ?? null,
       vendorPhone: insertPurchase.vendorPhone ?? null,
+      rawMaterialId: insertPurchase.rawMaterialId ?? null,
+      quantity: insertPurchase.quantity ?? null,
+      unitPrice: insertPurchase.unitPrice ?? null,
       paidAmount: insertPurchase.paidAmount ?? "0",
       status: insertPurchase.status ?? "pending",
       isCredit: insertPurchase.isCredit ?? false,
       alertFrequency: insertPurchase.alertFrequency ?? "none"
     }).returning();
+
+    // Auto-update inventory if linked to a raw material
+    if (purchase.rawMaterialId && purchase.quantity) {
+      await this.updateRawMaterialStock(purchase.rawMaterialId, parseFloat(purchase.quantity));
+    }
     
     return purchase;
   }
@@ -191,10 +295,29 @@ export class DatabaseStorage implements IStorage {
     const [prod] = await db.insert(production).values({
       ...insertProduction,
       date: new Date(),
+      rawMaterialId: insertProduction.rawMaterialId ?? null,
+      rawMaterialQuantity: insertProduction.rawMaterialQuantity ?? null,
+      productId: insertProduction.productId ?? null,
+      byproductId: insertProduction.byproductId ?? null,
       byproductQuantity: insertProduction.byproductQuantity ?? null,
       byproductName: insertProduction.byproductName ?? null
     }).returning();
     
+    // Auto-update inventory: Deduct Raw Material
+    if (prod.rawMaterialId && prod.rawMaterialQuantity) {
+      await this.updateRawMaterialStock(prod.rawMaterialId, -parseFloat(prod.rawMaterialQuantity));
+    }
+    
+    // Auto-update inventory: Add Product
+    if (prod.productId && prod.quantity) {
+      await this.updateProductStock(prod.productId, parseFloat(prod.quantity));
+    }
+
+    // Auto-update inventory: Add Byproduct
+    if (prod.byproductId && prod.byproductQuantity) {
+      await this.updateByproductStock(prod.byproductId, parseFloat(prod.byproductQuantity));
+    }
+
     return prod;
   }
 
@@ -216,9 +339,15 @@ export class DatabaseStorage implements IStorage {
     const [sale] = await db.insert(byproductSales).values({
       ...insertSale,
       invoiceNumber,
+      byproductId: insertSale.byproductId ?? null,
       date: new Date()
     }).returning();
     
+    // Auto-update inventory if linked to a byproduct
+    if (sale.byproductId && sale.quantity) {
+      await this.updateByproductStock(sale.byproductId, -parseFloat(sale.quantity));
+    }
+
     return sale;
   }
 }

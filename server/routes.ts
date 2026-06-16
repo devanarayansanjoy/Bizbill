@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { dbStorage as storage } from "./db-storage";
+import { requireAuth } from "./middleware/auth";
 import { 
   insertSaleSchema, 
   insertPurchaseSchema, 
@@ -8,10 +9,64 @@ import {
   insertRawMaterialSchema,
   insertByproductSaleSchema,
   insertCustomerSchema,
-  insertVendorSchema
+  insertVendorSchema,
+  insertProductSchema,
+  insertByproductSchema,
+  insertExpenseSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Protect all /api routes with JWT authentication
+  app.use("/api", requireAuth);
+
+  // Products routes
+  app.get("/api/products", async (req, res) => {
+    const products = await storage.getProducts();
+    res.json(products);
+  });
+
+  app.post("/api/products", async (req, res) => {
+    try {
+      const validatedData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(validatedData);
+      res.json(product);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Byproducts routes
+  app.get("/api/byproducts", async (req, res) => {
+    const byproducts = await storage.getByproducts();
+    res.json(byproducts);
+  });
+
+  app.post("/api/byproducts", async (req, res) => {
+    try {
+      const validatedData = insertByproductSchema.parse(req.body);
+      const byproduct = await storage.createByproduct(validatedData);
+      res.json(byproduct);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Expenses routes
+  app.get("/api/expenses", async (req, res) => {
+    const expenses = await storage.getExpenses();
+    res.json(expenses);
+  });
+
+  app.post("/api/expenses", async (req, res) => {
+    try {
+      const validatedData = insertExpenseSchema.parse(req.body);
+      const expense = await storage.createExpense(validatedData);
+      res.json(expense);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // Sales routes
   app.get("/api/sales", async (req, res) => {
     const sales = await storage.getSales();
@@ -227,35 +282,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reports/daily-assessment", async (req, res) => {
     try {
       const sales = await storage.getSales();
+      const byproductSales = await storage.getByproductSales();
       const purchases = await storage.getPurchases();
+      const expenses = await storage.getExpenses();
       
-      const dailyData: Record<string, { date: string, totalSales: number, totalPurchases: number }> = {};
+      const dailyData: Record<string, { 
+        date: string, 
+        totalSales: number, 
+        totalByproductSales: number,
+        totalPurchases: number,
+        totalExpenses: number
+      }> = {};
+
+      const getDay = (date: string | Date) => new Date(date).toISOString().split('T')[0];
 
       // Process Sales
       sales.forEach(sale => {
-        const dateKey = new Date(sale.date).toISOString().split('T')[0];
-        if (!dailyData[dateKey]) {
-          dailyData[dateKey] = { date: dateKey, totalSales: 0, totalPurchases: 0 };
-        }
+        const dateKey = getDay(sale.date);
+        if (!dailyData[dateKey]) dailyData[dateKey] = { date: dateKey, totalSales: 0, totalByproductSales: 0, totalPurchases: 0, totalExpenses: 0 };
         dailyData[dateKey].totalSales += parseFloat(sale.totalAmount);
+      });
+
+      // Process Byproduct Sales
+      byproductSales.forEach(sale => {
+        const dateKey = getDay(sale.date);
+        if (!dailyData[dateKey]) dailyData[dateKey] = { date: dateKey, totalSales: 0, totalByproductSales: 0, totalPurchases: 0, totalExpenses: 0 };
+        dailyData[dateKey].totalByproductSales += parseFloat(sale.totalAmount);
       });
 
       // Process Purchases
       purchases.forEach(purchase => {
-        const dateKey = new Date(purchase.date).toISOString().split('T')[0];
-        if (!dailyData[dateKey]) {
-          dailyData[dateKey] = { date: dateKey, totalSales: 0, totalPurchases: 0 };
-        }
+        const dateKey = getDay(purchase.date);
+        if (!dailyData[dateKey]) dailyData[dateKey] = { date: dateKey, totalSales: 0, totalByproductSales: 0, totalPurchases: 0, totalExpenses: 0 };
         dailyData[dateKey].totalPurchases += parseFloat(purchase.totalAmount);
       });
 
+      // Process Expenses
+      expenses.forEach(expense => {
+        const dateKey = getDay(expense.date);
+        if (!dailyData[dateKey]) dailyData[dateKey] = { date: dateKey, totalSales: 0, totalByproductSales: 0, totalPurchases: 0, totalExpenses: 0 };
+        dailyData[dateKey].totalExpenses += parseFloat(expense.amount);
+      });
+
       // Convert to array and calculate profit
-      const report = Object.values(dailyData).map(day => ({
-        date: day.date,
-        totalSales: day.totalSales,
-        totalPurchases: day.totalPurchases,
-        netProfit: day.totalSales - day.totalPurchases
-      }));
+      const report = Object.values(dailyData).map(day => {
+        const totalRevenue = day.totalSales + day.totalByproductSales;
+        const totalCost = day.totalPurchases + day.totalExpenses;
+        return {
+          date: day.date,
+          totalSales: day.totalSales,
+          totalByproductSales: day.totalByproductSales,
+          totalPurchases: day.totalPurchases,
+          totalExpenses: day.totalExpenses,
+          totalRevenue,
+          totalCost,
+          netProfit: totalRevenue - totalCost
+        };
+      });
 
       // Sort descending (newest first)
       report.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

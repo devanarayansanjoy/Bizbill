@@ -42,6 +42,46 @@ export const insertRawMaterialSchema = createInsertSchema(rawMaterials).omit({ i
 export type InsertRawMaterial = z.infer<typeof insertRawMaterialSchema>;
 export type RawMaterial = typeof rawMaterials.$inferSelect;
 
+// Products (Catalogue)
+export const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  sellingPrice: decimal("selling_price", { precision: 10, scale: 2 }).notNull(),
+  currentStock: decimal("current_stock", { precision: 10, scale: 2 }).notNull().default("0"),
+  unit: text("unit").notNull(),
+  imageUrl: text("image_url"),
+});
+
+export const insertProductSchema = createInsertSchema(products).omit({ id: true });
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Product = typeof products.$inferSelect;
+
+// Byproducts
+export const byproducts = pgTable("byproducts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  currentStock: decimal("current_stock", { precision: 10, scale: 2 }).notNull().default("0"),
+  unit: text("unit").notNull(),
+});
+
+export const insertByproductSchema = createInsertSchema(byproducts).omit({ id: true });
+export type InsertByproduct = z.infer<typeof insertByproductSchema>;
+export type Byproduct = typeof byproducts.$inferSelect;
+
+// Expenses
+export const expenses = pgTable("expenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: timestamp("date").notNull().defaultNow(),
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  category: text("category").notNull(),
+});
+
+export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, date: true });
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type Expense = typeof expenses.$inferSelect;
+
 // Sales
 export const sales = pgTable("sales", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -49,6 +89,9 @@ export const sales = pgTable("sales", {
   customerId: varchar("customer_id").references(() => customers.id),
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone"),
+  productId: varchar("product_id").references(() => products.id),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
   date: timestamp("date").notNull().defaultNow(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -72,6 +115,9 @@ export const purchases = pgTable("purchases", {
   vendorId: varchar("vendor_id").references(() => vendors.id),
   vendorName: text("vendor_name").notNull(),
   vendorPhone: text("vendor_phone"),
+  rawMaterialId: varchar("raw_material_id").references(() => rawMaterials.id),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
   date: timestamp("date").notNull().defaultNow(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -91,13 +137,23 @@ export type Purchase = typeof purchases.$inferSelect;
 // Production
 export const production = pgTable("production", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  productName: text("product_name").notNull(),
   date: timestamp("date").notNull().defaultNow(),
+  
+  // Input
+  rawMaterialId: varchar("raw_material_id").references(() => rawMaterials.id),
+  rawMaterialQuantity: decimal("raw_material_quantity", { precision: 10, scale: 2 }),
+  rawMaterialCost: decimal("raw_material_cost", { precision: 10, scale: 2 }).notNull(),
+  
+  // Primary Output
+  productId: varchar("product_id").references(() => products.id),
+  productName: text("product_name").notNull(),
   quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
   unit: text("unit").notNull(),
-  rawMaterialCost: decimal("raw_material_cost", { precision: 10, scale: 2 }).notNull(),
-  byproductQuantity: decimal("byproduct_quantity", { precision: 10, scale: 2 }),
+  
+  // Byproduct Output
+  byproductId: varchar("byproduct_id").references(() => byproducts.id),
   byproductName: text("byproduct_name"),
+  byproductQuantity: decimal("byproduct_quantity", { precision: 10, scale: 2 }),
 });
 
 export const insertProductionSchema = createInsertSchema(production).omit({ 
@@ -111,6 +167,7 @@ export type Production = typeof production.$inferSelect;
 export const byproductSales = pgTable("byproduct_sales", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   invoiceNumber: text("invoice_number").notNull().unique(),
+  byproductId: varchar("byproduct_id").references(() => byproducts.id),
   productName: text("product_name").notNull(),
   customerName: text("customer_name").notNull(),
   date: timestamp("date").notNull().defaultNow(),
