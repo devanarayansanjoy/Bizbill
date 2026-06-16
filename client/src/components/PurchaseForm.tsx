@@ -24,6 +24,8 @@ export default function PurchaseForm() {
   ]);
   const [isCredit, setIsCredit] = useState(false);
   const [vendorName, setVendorName] = useState("");
+  const [vendorPhone, setVendorPhone] = useState("");
+  const [alertFrequency, setAlertFrequency] = useState("none");
   const [paidAmount, setPaidAmount] = useState("");
 
   const createPurchaseMutation = useMutation({
@@ -37,6 +39,8 @@ export default function PurchaseForm() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       
       setVendorName("");
+      setVendorPhone("");
+      setAlertFrequency("none");
       setItems([{ id: "1", material: "", quantity: "", rate: "", amount: "0" }]);
       setIsCredit(false);
       setPaidAmount("");
@@ -91,9 +95,11 @@ export default function PurchaseForm() {
     
     createPurchaseMutation.mutate({
       vendorName,
+      vendorPhone: isCredit ? vendorPhone : undefined,
       totalAmount: total.toFixed(2),
       paidAmount: isCredit ? (paidAmount || "0") : total.toFixed(2),
       isCredit,
+      alertFrequency: isCredit ? alertFrequency : "none",
       status,
     });
   };
@@ -211,17 +217,43 @@ export default function PurchaseForm() {
           </div>
 
           {isCredit && (
-            <div className="space-y-2">
-              <Label htmlFor="paid-amount">Paid Amount</Label>
-              <Input
-                id="paid-amount"
-                type="number"
-                step="0.01"
-                value={paidAmount}
-                onChange={(e) => setPaidAmount(e.target.value)}
-                placeholder="0.00"
-                data-testid="input-paid-amount"
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="vendor-phone">Vendor Phone Number <span className="text-red-500">*</span></Label>
+                <Input
+                  id="vendor-phone"
+                  type="tel"
+                  value={vendorPhone}
+                  onChange={(e) => setVendorPhone(e.target.value)}
+                  placeholder="Enter phone number"
+                  required={isCredit}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paid-amount">Paid Amount</Label>
+                <Input
+                  id="paid-amount"
+                  type="number"
+                  step="0.01"
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="alert-frequency">WhatsApp Reminder Frequency</Label>
+                <select
+                  id="alert-frequency"
+                  value={alertFrequency}
+                  onChange={(e) => setAlertFrequency(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="none">None</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
             </div>
           )}
 

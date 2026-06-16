@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import DashboardStats from "@/components/DashboardStats";
+import DailyProfitability from "@/components/DailyProfitability";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
+import { ShoppingCart, Package, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -16,6 +20,8 @@ interface DashboardStatsData {
   pendingPayments: string;
   lowStock: number;
   todayProduction: number;
+  todaySales?: string;
+  todayPurchases?: string;
 }
 
 interface Transaction {
@@ -30,36 +36,46 @@ interface Transaction {
 }
 
 export default function Dashboard() {
-  const { data: stats } = useQuery<DashboardStatsData>({
+  const { data: stats, refetch: refetchStats, isRefetching: isRefetchingStats } = useQuery<DashboardStatsData>({
     queryKey: ["/api/dashboard/stats"],
   });
 
-  const { data: sales = [] } = useQuery<Transaction[]>({
+  const { data: sales = [], refetch: refetchSales, isRefetching: isRefetchingSales } = useQuery<Transaction[]>({
     queryKey: ["/api/sales"],
   });
 
-  const { data: purchases = [] } = useQuery<Transaction[]>({
+  const { data: purchases = [], refetch: refetchPurchases, isRefetching: isRefetchingPurchases } = useQuery<Transaction[]>({
     queryKey: ["/api/purchases"],
   });
 
+  const isRefreshing = isRefetchingStats || isRefetchingSales || isRefetchingPurchases;
+
+  const handleRefresh = () => {
+    refetchStats();
+    refetchSales();
+    refetchPurchases();
+  };
+
   const recentTransactions = [
-    ...sales.slice(0, 2).map(s => ({
+    ...sales.map(s => ({
       id: s.id,
       type: "Sale",
       number: s.invoiceNumber || "",
       party: s.customerName || "",
       amount: parseFloat(s.totalAmount),
-      status: s.status
+      status: s.status,
+      date: new Date(s.date).getTime()
     })),
-    ...purchases.slice(0, 1).map(p => ({
+    ...purchases.map(p => ({
       id: p.id,
       type: "Purchase",
       number: p.billNumber || "",
       party: p.vendorName || "",
       amount: parseFloat(p.totalAmount),
-      status: p.status
+      status: p.status,
+      date: new Date(p.date).getTime()
     }))
-  ].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 5);
+  ].sort((a, b) => b.date - a.date).slice(0, 5);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -76,9 +92,34 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of your business operations</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">Dashboard</h1>
+          <p className="text-muted-foreground">Overview of your business operations</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={handleRefresh} 
+            disabled={isRefreshing}
+            title="Sync / Refresh Data"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+          <Link href="/sales">
+            <Button>
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              New Sale
+            </Button>
+          </Link>
+          <Link href="/purchases">
+            <Button variant="outline">
+              <Package className="mr-2 h-4 w-4" />
+              New Purchase
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <DashboardStats
@@ -86,6 +127,11 @@ export default function Dashboard() {
         pendingPayments={stats?.pendingPayments || "0"}
         lowStock={stats?.lowStock || 0}
         todayProduction={stats?.todayProduction || 0}
+      />
+
+      <DailyProfitability 
+        todaySales={stats?.todaySales || "0"} 
+        todayPurchases={stats?.todayPurchases || "0"} 
       />
 
       <Card>

@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { dbStorage as storage } from "./db-storage";
 import { 
   insertSaleSchema, 
   insertPurchaseSchema, 
@@ -169,6 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard stats route
   app.get("/api/dashboard/stats", async (req, res) => {
     const sales = await storage.getSales();
+    const purchases = await storage.getPurchases();
     const materials = await storage.getRawMaterials();
     const productions = await storage.getProductions();
 
@@ -192,6 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const todayProductions = productions.filter(p => {
       const prodDate = new Date(p.date);
       prodDate.setHours(0, 0, 0, 0);
@@ -199,12 +201,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     const todayProductionQty = todayProductions.reduce((sum, p) => sum + parseFloat(p.quantity), 0);
 
+    const todaySales = sales.filter(s => {
+      const saleDate = new Date(s.date);
+      saleDate.setHours(0, 0, 0, 0);
+      return saleDate.getTime() === today.getTime();
+    }).reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
+
+    const todayPurchases = purchases.filter(p => {
+      const purchDate = new Date(p.date);
+      purchDate.setHours(0, 0, 0, 0);
+      return purchDate.getTime() === today.getTime();
+    }).reduce((sum, p) => sum + parseFloat(p.totalAmount), 0);
+
     res.json({
       totalSales: totalSales.toFixed(0),
       pendingPayments: pendingPayments.toFixed(0),
       lowStock,
-      todayProduction: Math.round(todayProductionQty)
+      todayProduction: Math.round(todayProductionQty),
+      todaySales: todaySales.toFixed(0),
+      todayPurchases: todayPurchases.toFixed(0)
     });
+  });
+
+  // Reports routes
+  app.get("/api/reports/daily-assessment", async (req, res) => {
+    try {
+      const sales = await storage.getSales();
+      const purchases = await storage.getPurchases();
+      
+      const dailyData: Record<string, { date: string, totalSales: number, totalPurchases: number }> = {};
+
+      // Process Sales
+      sales.forEach(sale => {
+        const dateKey = new Date(sale.date).toISOString().split('T')[0];
+        if (!dailyData[dateKey]) {
+          dailyData[dateKey] = { date: dateKey, totalSales: 0, totalPurchases: 0 };
+        }
+        dailyData[dateKey].totalSales += parseFloat(sale.totalAmount);
+      });
+
+      // Process Purchases
+      purchases.forEach(purchase => {
+        const dateKey = new Date(purchase.date).toISOString().split('T')[0];
+        if (!dailyData[dateKey]) {
+          dailyData[dateKey] = { date: dateKey, totalSales: 0, totalPurchases: 0 };
+        }
+        dailyData[dateKey].totalPurchases += parseFloat(purchase.totalAmount);
+      });
+
+      // Convert to array and calculate profit
+      const report = Object.values(dailyData).map(day => ({
+        date: day.date,
+        totalSales: day.totalSales,
+        totalPurchases: day.totalPurchases,
+        netProfit: day.totalSales - day.totalPurchases
+      }));
+
+      // Sort descending (newest first)
+      report.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      res.json(report);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   const httpServer = createServer(app);

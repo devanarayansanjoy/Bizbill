@@ -168,9 +168,11 @@ export class MemStorage implements IStorage {
       invoiceNumber,
       date: new Date(),
       customerId: insertSale.customerId ?? null,
+      customerPhone: insertSale.customerPhone ?? null,
       paidAmount: insertSale.paidAmount ?? "0",
       status: insertSale.status ?? "pending",
-      isCredit: insertSale.isCredit ?? false
+      isCredit: insertSale.isCredit ?? false,
+      alertFrequency: insertSale.alertFrequency ?? "none"
     };
     this.sales.set(id, sale);
     return sale;
@@ -207,9 +209,11 @@ export class MemStorage implements IStorage {
       billNumber,
       date: new Date(),
       vendorId: insertPurchase.vendorId ?? null,
+      vendorPhone: insertPurchase.vendorPhone ?? null,
       paidAmount: insertPurchase.paidAmount ?? "0",
       status: insertPurchase.status ?? "pending",
-      isCredit: insertPurchase.isCredit ?? false
+      isCredit: insertPurchase.isCredit ?? false,
+      alertFrequency: insertPurchase.alertFrequency ?? "none"
     };
     this.purchases.set(id, purchase);
     return purchase;

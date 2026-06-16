@@ -48,11 +48,13 @@ export const sales = pgTable("sales", {
   invoiceNumber: text("invoice_number").notNull().unique(),
   customerId: varchar("customer_id").references(() => customers.id),
   customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone"),
   date: timestamp("date").notNull().defaultNow(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   status: text("status").notNull().default("pending"),
   isCredit: boolean("is_credit").notNull().default(false),
+  alertFrequency: text("alert_frequency").notNull().default("none"),
 });
 
 export const insertSaleSchema = createInsertSchema(sales).omit({ 
@@ -69,11 +71,13 @@ export const purchases = pgTable("purchases", {
   billNumber: text("bill_number").notNull().unique(),
   vendorId: varchar("vendor_id").references(() => vendors.id),
   vendorName: text("vendor_name").notNull(),
+  vendorPhone: text("vendor_phone"),
   date: timestamp("date").notNull().defaultNow(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   status: text("status").notNull().default("pending"),
   isCredit: boolean("is_credit").notNull().default(false),
+  alertFrequency: text("alert_frequency").notNull().default("none"),
 });
 
 export const insertPurchaseSchema = createInsertSchema(purchases).omit({ 

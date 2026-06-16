@@ -13,6 +13,10 @@ import Production from "@/pages/Production";
 import RawMaterials from "@/pages/RawMaterials";
 import CreditPage from "@/pages/CreditPage";
 import ByproductPage from "@/pages/ByproductPage";
+import SalesHistory from "@/pages/SalesHistory";
+import PurchaseHistory from "@/pages/PurchaseHistory";
+import DailyAssessment from "@/pages/DailyAssessment";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,11 +24,15 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/sales" component={Sales} />
+      <Route path="/sales-history" component={SalesHistory} />
       <Route path="/purchases" component={Purchases} />
+      <Route path="/purchase-history" component={PurchaseHistory} />
       <Route path="/production" component={Production} />
       <Route path="/materials" component={RawMaterials} />
       <Route path="/credit" component={CreditPage} />
       <Route path="/byproduct" component={ByproductPage} />
+      <Route path="/daily-assessment" component={DailyAssessment} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );

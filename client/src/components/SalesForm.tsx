@@ -24,6 +24,8 @@ export default function SalesForm() {
   ]);
   const [isCredit, setIsCredit] = useState(false);
   const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [alertFrequency, setAlertFrequency] = useState("none");
   const [paidAmount, setPaidAmount] = useState("");
 
   const createSaleMutation = useMutation({
@@ -37,6 +39,8 @@ export default function SalesForm() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       
       setCustomerName("");
+      setCustomerPhone("");
+      setAlertFrequency("none");
       setItems([{ id: "1", description: "", quantity: "", rate: "", amount: "0" }]);
       setIsCredit(false);
       setPaidAmount("");
@@ -91,9 +95,11 @@ export default function SalesForm() {
     
     createSaleMutation.mutate({
       customerName,
+      customerPhone: isCredit ? customerPhone : undefined,
       totalAmount: total.toFixed(2),
       paidAmount: isCredit ? (paidAmount || "0") : total.toFixed(2),
       isCredit,
+      alertFrequency: isCredit ? alertFrequency : "none",
       status,
     });
   };
@@ -211,17 +217,44 @@ export default function SalesForm() {
           </div>
 
           {isCredit && (
-            <div className="space-y-2">
-              <Label htmlFor="paid-amount">Paid Amount</Label>
-              <Input
-                id="paid-amount"
-                type="number"
-                step="0.01"
-                value={paidAmount}
-                onChange={(e) => setPaidAmount(e.target.value)}
-                placeholder="0.00"
-                data-testid="input-paid-amount"
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="customer-phone">Customer Phone Number <span className="text-red-500">*</span></Label>
+                <Input
+                  id="customer-phone"
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="Enter phone number"
+                  required={isCredit}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paid-amount">Paid Amount</Label>
+                <Input
+                  id="paid-amount"
+                  type="number"
+                  step="0.01"
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(e.target.value)}
+                  placeholder="0.00"
+                  data-testid="input-paid-amount"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="alert-frequency">WhatsApp Reminder Frequency</Label>
+                <select
+                  id="alert-frequency"
+                  value={alertFrequency}
+                  onChange={(e) => setAlertFrequency(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="none">None</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
             </div>
           )}
 

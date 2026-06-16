@@ -346,3 +346,35 @@
     inset: -1px;
   }
 }
+
+@media print {
+  /* Completely hide the background app */
+  #root {
+    display: none !important;
+  }
+
+  /* Hide the dark overlay backdrop */
+  [data-state="open"][class*="fixed inset-0"] {
+    display: none !important;
+  }
+
+  /* Reset the dialog container so it flows normally at the top of the page */
+  [role="dialog"] {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide the close X button inside the dialog */
+  [role="dialog"] > button {
+    display: none !important;
+  }
+}
