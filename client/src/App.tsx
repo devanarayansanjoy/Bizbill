@@ -25,11 +25,13 @@ import DailyAssessment from "@/pages/DailyAssessment";
 import Settings from "@/pages/Settings";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/not-found";
+import QuickAccess from "@/pages/QuickAccess";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={QuickAccess} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/catalogue" component={Catalogue} />
       <Route path="/inventory" component={Inventory} />
       <Route path="/expenses" component={Expenses} />

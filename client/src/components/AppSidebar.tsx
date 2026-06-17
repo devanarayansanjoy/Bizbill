@@ -39,7 +39,8 @@ import {
 import { useLocation, Link } from "wouter";
 
 const menuItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Quick Access", url: "/", icon: LayoutDashboard },
+  { title: "Analytics Dashboard", url: "/dashboard", icon: LineChart },
   { title: "Catalogue", url: "/catalogue", icon: BookOpen },
   { title: "Inventory", url: "/inventory", icon: ClipboardList },
   { 
