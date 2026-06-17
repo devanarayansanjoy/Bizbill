@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertProductSchema, type InsertProduct } from "@shared/schema";
+import { insertProductSchema, type InsertProduct, type Product } from "@shared/schema";
 import {
   Form,
   FormControl,
@@ -24,20 +24,21 @@ import {
 interface ProductFormProps {
   onSubmit: (data: InsertProduct) => void;
   isLoading?: boolean;
+  initialData?: Product;
 }
 
-export function ProductForm({ onSubmit, isLoading }: ProductFormProps) {
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+export function ProductForm({ onSubmit, isLoading, initialData }: ProductFormProps) {
+  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.imageUrl || null);
 
   const form = useForm<InsertProduct>({
     resolver: zodResolver(insertProductSchema),
     defaultValues: {
-      name: "",
-      category: "",
-      sellingPrice: "0",
-      currentStock: "0",
-      unit: "Pieces",
-      imageUrl: "",
+      name: initialData?.name || "",
+      category: initialData?.category || "",
+      sellingPrice: initialData ? initialData.sellingPrice.toString() : "0",
+      currentStock: initialData ? initialData.currentStock.toString() : "0",
+      unit: initialData?.unit || "Pieces",
+      imageUrl: initialData?.imageUrl || "",
     },
   });
 
@@ -184,7 +185,7 @@ export function ProductForm({ onSubmit, isLoading }: ProductFormProps) {
           className="w-full h-14 rounded-xl text-lg font-medium bg-green-500 hover:bg-green-600 text-white mt-8"
           disabled={isLoading}
         >
-          {isLoading ? "Saving..." : "✓ Save Product"}
+          {isLoading ? "Saving..." : initialData ? "✓ Update Product" : "✓ Save Product"}
         </Button>
       </form>
     </Form>

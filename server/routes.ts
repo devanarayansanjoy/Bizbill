@@ -35,6 +35,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/products/:id", async (req, res) => {
+    try {
+      const validatedData = insertProductSchema.partial().parse(req.body);
+      const product = await storage.updateProduct(req.params.id, validatedData);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      res.json(product);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/products/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteProduct(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // Byproducts routes
   app.get("/api/byproducts", async (req, res) => {
     const byproducts = await storage.getByproducts();

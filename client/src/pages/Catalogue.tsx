@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Package } from "lucide-react";
+import { Plus, Search, Package, Pencil, Trash2 } from "lucide-react";
 import { ProductForm } from "@/components/ProductForm";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Catalogue() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
@@ -45,6 +47,55 @@ export default function Catalogue() {
       });
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/products/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      setIsEditModalOpen(false);
+      setEditingProduct(null);
+      toast({
+        title: "Success",
+        description: "Product updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/products/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Success",
+        description: "Product deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
+      deleteMutation.mutate(id);
+    }
+  };
 
   const filteredProducts = products?.filter((p) =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -75,6 +126,23 @@ export default function Catalogue() {
                 onSubmit={(data) => createMutation.mutate(data)}
                 isLoading={createMutation.isPending}
               />
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <DialogContent className="sm:max-w-[425px] rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold">Edit Product</DialogTitle>
+            </DialogHeader>
+            <div className="mt-4">
+              {editingProduct && (
+                <ProductForm 
+                  initialData={editingProduct}
+                  onSubmit={(data) => updateMutation.mutate({ id: editingProduct.id, data })}
+                  isLoading={updateMutation.isPending}
+                />
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -124,7 +192,25 @@ export default function Catalogue() {
                 </div>
               </div>
               <div className="p-5">
-                <h3 className="text-lg font-bold text-foreground mb-1">{product.name}</h3>
+                <div className="flex justify-between items-start mb-1">
+                  <h3 className="text-lg font-bold text-foreground">{product.name}</h3>
+                  <div className="flex gap-1.5">
+                    <button 
+                      onClick={() => { setEditingProduct(product); setIsEditModalOpen(true); }}
+                      className="p-1.5 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                      title="Edit Product"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(product.id)}
+                      className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                      title="Delete Product"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
                 <div className="flex items-end justify-between mt-4">
                   <div>
                     <p className="text-sm text-muted-foreground font-medium">Selling Price</p>
