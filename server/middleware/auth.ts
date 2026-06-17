@@ -18,8 +18,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   try {
-    // Supabase JWTs are signed with the project's JWT Secret
-    const decoded = jwt.verify(token, JWT_SECRET);
+    // Supabase JWTs are signed with the project's JWT Secret using HS256
+    // We must explicitly specify the algorithm to prevent 'invalid algorithm' errors
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     // Attach the user ID to the request
     (req as any).user = decoded;
     next();
